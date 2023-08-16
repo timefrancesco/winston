@@ -7,7 +7,6 @@
 //
 import Foundation
 import SwiftUI
-import SimpleHaptics
 
 struct SwipeUI<T: GenericRedditEntityDataType>: ViewModifier {
   private enum TriggeredAction: Int {
@@ -18,7 +17,6 @@ struct SwipeUI<T: GenericRedditEntityDataType>: ViewModifier {
     case none = 0
   }
   
-  @EnvironmentObject private var haptics: SimpleHapticGenerator
   @State private var pressing: Bool = false
   @State private var dragAmount: CGFloat = 0
   @State private var offset: CGFloat?
@@ -185,23 +183,27 @@ struct SwipeUI<T: GenericRedditEntityDataType>: ViewModifier {
         
         var triggering: TriggeredAction = .none
         
-        if (actionsSet.leftFirst.id != "none" && newValue > firstActionThreshold - 1) {
-          triggering = .leftFirst
-        }
-        if actionsSet.leftSecond.id != "none" && (newValue) > secondActionThreshold - 1 {
-          triggering = .leftSecond
-        }
-        if (actionsSet.rightFirst.id != "none" && newValue < -firstActionThreshold + 1) {
+        if (actionsSet.rightFirst.id != "none" && actionsSet.rightFirst.enabled(entity) && newValue >= firstActionThreshold) {
           triggering = .rightFirst
         }
-        if actionsSet.rightSecond.id != "none" && (newValue) < -secondActionThreshold + 1 {
+        if actionsSet.rightSecond.id != "none" && actionsSet.rightSecond.enabled(entity) && (newValue) >= secondActionThreshold {
           triggering = .rightSecond
+        }
+        if (actionsSet.leftFirst.id != "none" && actionsSet.leftFirst.enabled(entity) && newValue <= -firstActionThreshold) {
+          triggering = .leftFirst
+        }
+        if actionsSet.leftSecond.id != "none" && actionsSet.leftSecond.enabled(entity) && (newValue) <= -secondActionThreshold {
+          triggering = .leftSecond
         }
         
         if triggering != triggeredAction {
           let increasing = triggering.rawValue > triggeredAction.rawValue
           let isSecond = triggering == .leftSecond || triggering == .rightSecond
-          try? haptics.fire(intensity: increasing ? 0.5 : 0.35, sharpness: increasing ? 0.25 : 0.5)
+          
+          let impact = UIImpactFeedbackGenerator(style: increasing ? .rigid : .soft)
+          impact.prepare()
+          impact.impactOccurred()
+//          try? haptics.fire(intensity: increasing ? 0.5 : 0.35, sharpness: increasing ? 0.25 : 0.5)
           withAnimation(isSecond ? .default.speed(2) : .interpolatingSpring(stiffness: 200, damping: 15, initialVelocity: increasing ? 35 : 0)) {
             triggeredAction = triggering
           }

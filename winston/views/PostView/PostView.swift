@@ -25,15 +25,21 @@ struct PostView: View {
   @State private var sort: CommentSortOption = Defaults[.preferredCommentSort]
   @EnvironmentObject private var redditAPI: RedditAPI
   @EnvironmentObject private var router: Router
-  @ObservedObject private var globalLoader = TempGlobalState.shared.globalLoader
   @State var update = false
   
   func asyncFetch(_ full: Bool = true) async {
-    if let result = await post.refreshPost(commentID: ignoreSpecificComment ? nil : highlightID, sort: sort, after: nil, subreddit: subreddit.data?.display_name ?? subreddit.id, full: full), let newComments = result.0 {
-//      Task {
-//        await redditAPI.updateAvatarURLCacheFromComments(comments: newComments)
-//      }
+    if full {
+        update.toggle()
     }
+    if let result = await post.refreshPost(commentID: ignoreSpecificComment ? nil : highlightID, sort: sort, after: nil, subreddit: subreddit.data?.display_name ?? subreddit.id, full: full), let newComments = result.0 {
+      Task {
+        await redditAPI.updateAvatarURLCacheFromComments(comments: newComments)
+      }
+    }
+  }
+  
+  func updateComments() {
+    Task { await asyncFetch(true) }
   }
   
   var body: some View {
@@ -57,7 +63,7 @@ struct PostView: View {
           if !ignoreSpecificComment && highlightID != nil {
             Section {
               Button {
-                globalLoader.enable("Loading full post...")
+                TempGlobalState.shared.globalLoader.enable("Loading full post...")
                 withAnimation {
                   ignoreSpecificComment = true
                 }
@@ -79,12 +85,12 @@ struct PostView: View {
         }
         .listRowSeparator(.hidden)
       }
-      .introspect(.list, on: .iOS(.v15)) { list in
-        list.backgroundColor = UIColor.systemGroupedBackground
-      }
-      .introspect(.list, on: .iOS(.v16, .v17)) { list in
-        list.backgroundColor = UIColor.systemGroupedBackground
-      }
+//      .introspect(.list, on: .iOS(.v15)) { list in
+//        list.backgroundColor = UIColor.systemGroupedBackground
+//      }
+//      .introspect(.list, on: .iOS(.v16, .v17)) { list in
+//        list.backgroundColor = UIColor.systemGroupedBackground
+//      }
       .transition(.opacity)
       .environment(\.defaultMinListRowHeight, 1)
       .listStyle(.plain)
@@ -131,14 +137,13 @@ struct PostView: View {
           .animation(nil, value: sort)
       )
       .onChange(of: sort) { val in
-        update.toggle()
-        Task { await asyncFetch() }
+        updateComments()
       }
-//      .task {
-//        if subreddit.data == nil && subreddit.id != "home" {
-//          await subreddit.refreshSubreddit()
-//        }
-//      }
+      .task {
+        if subreddit.data == nil && subreddit.id != "home" {
+          await subreddit.refreshSubreddit()
+        }
+      }
     }
 
   }

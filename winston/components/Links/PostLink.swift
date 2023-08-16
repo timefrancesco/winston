@@ -6,11 +6,7 @@
 //
 
 import SwiftUI
-import CoreMedia
 import Defaults
-import AVKit
-import AVFoundation
-import SimpleHaptics
 
 struct FlairTag: View {
   var text: String
@@ -39,12 +35,10 @@ struct PostLink: View, Equatable {
     lhs.post == rhs.post && lhs.sub == rhs.sub
   }
   
+  @EnvironmentObject private var router: Router
   @ObservedObject var post: Post
   @ObservedObject var sub: Subreddit
   var showSub = false
-  @EnvironmentObject private var router: Router
-  @EnvironmentObject private var haptics: SimpleHapticGenerator
-
   @Default(.preferenceShowPostsCards) private var preferenceShowPostsCards
   @Default(.preferenceShowPostsAvatars) private var preferenceShowPostsAvatars
   @Default(.blurPostLinkNSFW) private var blurPostLinkNSFW
@@ -147,6 +141,7 @@ struct PostLink: View, Equatable {
             .frame(maxHeight: .infinity)
             .fontSize(22, .medium)
           }
+          
         }
         .zIndex(1)
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -231,9 +226,7 @@ struct PostLink: View, Equatable {
       .contentShape(Rectangle())
       .swipyUI(
         onTap: {
-          withAnimation {
-            router.path.append(PostViewPayload(post: post, sub: feedsAndSuch.contains(sub.id) ? sub : sub))
-          }
+          router.path.append(PostViewPayload(post: post, sub: feedsAndSuch.contains(sub.id) ? sub : sub))
         },
         actionsSet: postSwipeActions,
         entity: post
@@ -248,18 +241,16 @@ struct PostLink: View, Equatable {
             post.toggleSeen(optimistic: true)
           } } label: { Label("Toggle seen", systemImage: "eye") }
         }
-      }, preview: { NavigationStack { PostView(post: post, subreddit: sub, forceCollapse: true) }.environmentObject(router).environmentObject(post.redditAPI) })
+      }, preview: { NavigationStack { PostView(post: post, subreddit: sub, forceCollapse: true) }.environmentObject(post.redditAPI) })
       .foregroundColor(.primary)
       .multilineTextAlignment(.leading)
       .zIndex(1)
       .onDisappear {
-        if readPostOnScroll {
-          Task(priority: .background) {
+        Task(priority: .background) {
+          if readPostOnScroll {
             post.toggleSeen(true, optimistic: true)
           }
-        }
-        if hideReadPosts {
-          Task(priority: .background) {
+          if hideReadPosts {
             await post.hide(true)
           }
         }
